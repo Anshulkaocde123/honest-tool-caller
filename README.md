@@ -1,6 +1,4 @@
-<p align="center">
-  <img src="assets/banner.png" alt="The Honest Tool-Caller Banner" width="100%"/>
-</p>
+![The Honest Tool-Caller Banner](assets/banner.png)
 
 <p align="center">
   <strong>An AI assistant that refuses to hallucinate.</strong><br/>
