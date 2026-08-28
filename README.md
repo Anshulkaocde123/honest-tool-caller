@@ -513,6 +513,27 @@ Crashing is never the answer. Return errors as data.
 | Python `ast` module | Safe math evaluation | Because `eval()` is a war crime |
 | [pytest](https://docs.pytest.org/) | Test framework | 32 tests, zero network dependencies |
 
+## Why Gemini Instead of Others?
+
+If you're wondering why we chose Google's Gemini over OpenAI (GPT-4) or Anthropic (Claude) for this project:
+
+1. **Free Tier Generosity:** Gemini's free tier (via AI Studio) is incredibly generous for developers building side projects and learning agentic patterns. You don't need to pull out a credit card to run these tests.
+2. **Native Dict Arguments:** In Gemini's Interactions API, when the model requests a tool call, `step.arguments` is already parsed into a native Python dictionary. With OpenAI, `tool_call.function.arguments` is a raw JSON string that you have to parse yourself (and hope the model didn't hallucinate invalid JSON). Gemini handles the parsing safely for you.
+3. **Speed:** `gemini-2.5-flash` is blisteringly fast, which is critical for tool-calling where you have multiple round-trips before answering the user.
+
+---
+
+## Is It Deployed? (Can Anyone Use It?)
+
+**Yes, the code is public and ready to use!** 
+
+Because this is a CLI (Command Line Interface) tool rather than a centralized web app, it runs locally on your machine. This is a feature, not a bug: it means you aren't sending your private data or API keys to our servers. You run the brain (Gemini) and the hands (the local Python scripts) entirely on your own hardware.
+
+Anyone can use it right now by following these 3 steps:
+1. Clone this repository to your local machine.
+2. Get your own free Gemini API key from [Google AI Studio](https://aistudio.google.com/apikey).
+3. Run `python main.py chat` in your terminal.
+
 ---
 
 ## License
