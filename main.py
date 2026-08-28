@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """
-The Honest Tool-Caller — a CLI assistant that refuses to hallucinate.
-It checks weather, does math, and searches Wikipedia by actually calling
-real APIs instead of making stuff up. What a concept.
+The Honest Tool-Caller Orchestrator.
+
+A CLI assistant that refuses to hallucinate. It checks weather, does math,
+and searches Wikipedia by actually calling real APIs instead of making stuff up.
+Uses Google's Gemini Interactions API to implement a ReAct loop.
 
 Usage:
   python main.py ask "What's the weather in Delhi?"
@@ -11,9 +13,9 @@ Usage:
 """
 
 import argparse
-import json
 import os
 import sys
+from typing import Optional, List, Dict, Any
 
 from dotenv import load_dotenv
 from google import genai
@@ -23,7 +25,8 @@ from tool_handlers import execute_tool
 
 load_dotenv()
 
-# ── pretty colors (no extra deps, just ANSI) ────────────────────────────────
+# ── ANSI Color Codes ────────────────────────────────────────────────────────
+# Because black and white text is for barbarians.
 
 CYAN = "\033[96m"
 GREEN = "\033[92m"
@@ -34,9 +37,14 @@ BOLD = "\033[1m"
 RESET = "\033[0m"
 
 
-def get_client():
-    """Create a Gemini client or die trying."""
+def get_client() -> genai.Client:
+    """
+    Create and authenticate a Gemini client.
+    Dies gracefully if the API key is missing.
 
+    Returns:
+        genai.Client: The authenticated client.
+    """
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key or api_key == "paste-your-gemini-api-key-here":
         print(f"{RED}✗ No API key found.{RESET}")
@@ -47,12 +55,21 @@ def get_client():
     return genai.Client(api_key=api_key)
 
 
-def ask(query: str, client=None, verbose: bool = True):
+def ask(query: str, client: Optional[genai.Client] = None, verbose: bool = True) -> str:
     """
-    Send a query through the full tool-calling pipeline.
-    Two round trips: ask → tool call → execute → feed back → final answer.
-    """
+    Send a query through the full tool-calling pipeline (ReAct pattern).
+    Performs two round trips:
+      1. Ask → Model requests tool call
+      2. Execute tool locally → Feed result back → Model generates final answer
 
+    Args:
+        query (str): The user's question.
+        client (Optional[genai.Client]): The Gemini client. Created if None.
+        verbose (bool): Whether to print the interactions to stdout.
+
+    Returns:
+        str: The final answer from the model.
+    """
     if client is None:
         client = get_client()
 
@@ -60,25 +77,25 @@ def ask(query: str, client=None, verbose: bool = True):
         print(f"\n{BOLD}You:{RESET} {query}")
         print(f"{DIM}  ↳ sending to gemini...{RESET}")
 
-    # round 1: send the question with our tool schemas
+    # Round 1: Send the question with our tool schemas
     interaction = client.interactions.create(
         model="gemini-2.5-flash",
         input=query,
         tools=ALL_TOOLS,
     )
 
-    # check if gemini wants to call a tool
+    # Check if Gemini wants to call a tool (identifying function_call steps)
     tool_calls = [s for s in interaction.steps if s.type == "function_call"]
 
     if not tool_calls:
-        # no tool needed — gemini answered directly
+        # No tool needed — Gemini answered directly
         answer = interaction.output_text
         if verbose:
             print(f"\n{GREEN}🤖 Assistant:{RESET} {answer}")
         return answer
 
-    # execute each tool call locally
-    results = []
+    # Execute each tool call locally and gather results
+    results: List[Dict[str, Any]] = []
     for step in tool_calls:
         if verbose:
             print(f"  {YELLOW}⚡ calling {step.name}({step.arguments}){RESET}")
@@ -95,7 +112,7 @@ def ask(query: str, client=None, verbose: bool = True):
             "result": [{"type": "text", "text": str(result)}],
         })
 
-    # round 2: feed the tool results back
+    # Round 2: Feed the tool results back (linked via previous_interaction_id)
     final = client.interactions.create(
         model="gemini-2.5-flash",
         input=results,
@@ -109,9 +126,11 @@ def ask(query: str, client=None, verbose: bool = True):
     return answer
 
 
-def chat_loop():
-    """Interactive chat. Type 'quit' or 'exit' when you've had enough."""
-
+def chat_loop() -> None:
+    """
+    Start an interactive chat loop.
+    Type 'quit', 'exit', or 'q' to escape.
+    """
     print(f"\n{BOLD}{'═' * 50}{RESET}")
     print(f"{BOLD} The Honest Tool-Caller{RESET} {DIM}(Gemini Edition){RESET}")
     print(f" Weather • Calculator • Wikipedia")
@@ -136,13 +155,15 @@ def chat_loop():
         ask(user_input, client=client)
 
 
-def run_tests():
-    """Fire all 3 tools with test queries to make sure everything works."""
-
+def run_tests() -> None:
+    """
+    Fire all 3 tools with test queries to ensure the pipeline is operational.
+    A simple smoke test suite for the CLI.
+    """
     test_queries = [
-        ("🌤️  Weather", "What's the weather in Delhi right now?"),
-        ("🔢 Calculator", "What is (2 + 3) * 4 - 1?"),
-        ("📚 Wikipedia", "Tell me about the Taj Mahal."),
+        ("Weather", "What's the weather in Delhi right now?"),
+        ("Calculator", "What is (2 + 3) * 4 - 1?"),
+        ("Wikipedia", "Tell me about the Taj Mahal."),
     ]
 
     print(f"\n{BOLD}{'═' * 50}{RESET}")
@@ -158,21 +179,25 @@ def run_tests():
     print(f"\n{GREEN}✓ All tests fired.{RESET}\n")
 
 
-def main():
+def main() -> None:
+    """
+    CLI Entrypoint.
+    Parses arguments and delegates to the appropriate command.
+    """
     parser = argparse.ArgumentParser(
         prog="honest-tool-caller",
         description="A CLI assistant that refuses to hallucinate. Uses real tools.",
     )
     subparsers = parser.add_subparsers(dest="command")
 
-    # ask subcommand
+    # `ask` subcommand
     ask_parser = subparsers.add_parser("ask", help="Ask a single question")
     ask_parser.add_argument("query", type=str, help="Your question")
 
-    # chat subcommand
+    # `chat` subcommand
     subparsers.add_parser("chat", help="Interactive chat loop")
 
-    # test subcommand
+    # `test` subcommand
     subparsers.add_parser("test", help="Run smoke tests for all 3 tools")
 
     args = parser.parse_args()

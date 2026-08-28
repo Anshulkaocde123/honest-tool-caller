@@ -1,9 +1,14 @@
 """
-Tool schemas — the menu we hand to Gemini.
-"Here are functions you can ask me to run. Choose wisely."
+Tool Definitions (The Menu).
+
+This module defines the JSON Schema representations of the tools available to the Gemini model.
+Think of this as the menu you hand to the model so it knows what it can order. If the
+description is vague, the model will hallucinate. Be precise.
 """
 
-weather_tool = {
+from typing import Dict, Any, List
+
+weather_tool: Dict[str, Any] = {
     "type": "function",
     "name": "get_weather",
     "description": (
@@ -24,7 +29,7 @@ weather_tool = {
     },
 }
 
-calculate_tool = {
+calculate_tool: Dict[str, Any] = {
     "type": "function",
     "name": "calculate",
     "description": (
@@ -45,7 +50,7 @@ calculate_tool = {
     },
 }
 
-wikipedia_tool = {
+wikipedia_tool: Dict[str, Any] = {
     "type": "function",
     "name": "search_wikipedia",
     "description": (
@@ -66,5 +71,5 @@ wikipedia_tool = {
     },
 }
 
-# all three, ready to ship
-ALL_TOOLS = [weather_tool, calculate_tool, wikipedia_tool]
+# The complete roster of tools to serve to the model.
+ALL_TOOLS: List[Dict[str, Any]] = [weather_tool, calculate_tool, wikipedia_tool]
